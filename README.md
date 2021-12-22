@@ -1,2 +1,11 @@
-# moscow-movie-night-bot
-Telegram bot for managing movie choose for movies nights
+# Телеграм бот для Московского киноклуба.
+
+## Переменные окружения  
+- BOT_DEBUG - Устанавливет флаг дебаг для объекта телеграм бота. По умолчанию - False
+- TELEGRAM_KEY - Телеграм апи ключ для бота
+- TELEGRAM_LONGPULLING_TIMEOUT - Частота опроса лонгпулинга. По умолчанию 60 секунду.
+- DB_NAME - Имя БД для бота. По умолчанию 'movie.db'.
+
+## TODO:
+ - Тесты на функции БД
+ - Очистить репозиторий от лишних файлов
