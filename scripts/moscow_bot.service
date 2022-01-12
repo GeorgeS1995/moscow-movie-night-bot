@@ -1,0 +1,15 @@
+[Unit]
+Description=Start up unit for moscow bot
+After=network.target
+
+[Service]
+WorkingDirectory=/home/bot/
+EnvironmentFile=/home/bot/moscow_bot.env
+Type=simple
+User=bot
+Group=bot
+ExecStart=/home/bot/moscow_bot
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
