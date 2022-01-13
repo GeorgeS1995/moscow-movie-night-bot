@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 
 	gorm "gorm.io/gorm"
@@ -15,10 +16,16 @@ type Movie struct {
 
 type Movies []Movie
 
-func (movies *Movies) GetMoviewList() string {
+func (movies Movies) GetMoviewList() string {
 	var movieListBuilder strings.Builder
-	for _, m := range *movies {
-		movieListBuilder.WriteString(fmt.Sprintln(m.Label))
+	for {
+		if len(movies) == 1 {
+			movieListBuilder.WriteString(fmt.Sprintln(movies[0].Label))
+			break
+		}
+		choose := rand.Intn(len(movies))
+		movieListBuilder.WriteString(fmt.Sprintln(movies[choose].Label))
+		movies = append(movies[:choose], movies[choose+1:]...)
 	}
 	return movieListBuilder.String()
 }
