@@ -93,6 +93,11 @@ func (b *MovieNightTelegramBot) Choose(updates chan tgbotapi.Update) {
 		b.tgBot.Send(msg)
 		return
 	}
+	if len(filmList) == 0 {
+		msg = tgbotapi.NewMessage(chatID, "Нет фильмов в шляпе.")
+		b.tgBot.Send(msg)
+		return
+	}
 	choosenFilm := filmList[rand.Intn(len(filmList))]
 	msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("%s.\nВы уверены, что хотите посмотреть этот фильм?\nЕсли вы ответите ДА, выбранный фильм будет удален из шляпы навсегда.\nЕсли ответите что-нибудь еще, то он останется в шляпе.", choosenFilm.Label))
 	b.tgBot.Send(msg)
