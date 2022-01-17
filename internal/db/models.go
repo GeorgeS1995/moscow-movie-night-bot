@@ -4,14 +4,21 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
-
-	gorm "gorm.io/gorm"
+	"time"
 )
 
+// Simplifiest gorm.Model struct version
+type BaseInheritedModel struct {
+	ID        uint `gorm:"primarykey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type Movie struct {
-	gorm.Model
-	Label string
-	Users []User `gorm:"many2many:user_movies;"`
+	BaseInheritedModel
+	Label  string
+	UserID uint `gorm:"foreignKey:UserID;references:ID"`
+	Status MovieStatus
 }
 
 type Movies []Movie
@@ -19,8 +26,7 @@ type Movies []Movie
 func (movies Movies) GetMoviewList() string {
 	var movieListBuilder strings.Builder
 	for {
-		if len(movies) == 1 {
-			movieListBuilder.WriteString(fmt.Sprintln(movies[0].Label))
+		if len(movies) == 0 {
 			break
 		}
 		choose := rand.Intn(len(movies))
@@ -31,7 +37,6 @@ func (movies Movies) GetMoviewList() string {
 }
 
 type User struct {
-	gorm.Model
-	TelegramID int64   `gorm:"unique;"`
-	Movies     []Movie `gorm:"many2many:user_movies;"`
+	BaseInheritedModel
+	TelegramID int64 `gorm:"unique;"`
 }

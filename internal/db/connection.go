@@ -38,7 +38,7 @@ func (m MovieDB) GetOrCreateMovie(film string) (Movie, error) {
 	result := m.db.Where("label = ?", film).First(&movie)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			movie = Movie{Label: film}
+			movie = Movie{Label: film, Status: MovieStatusUnwatched}
 			result = m.db.Create(&movie)
 		}
 		return movie, result.Error
@@ -55,11 +55,9 @@ func (m MovieDB) SaveFilmToHat(tgUser int64, film string) error {
 	if err != nil {
 		return err
 	}
-	association := m.db.Model(&user).Association("Movies")
-	if association.DB.Error != nil {
-		return err
-	}
-	err = association.Append([]Movie{movie})
+	movie.UserID = user.ID
+	result := m.db.Save(movie)
+	err = result.Error
 	if err != nil {
 		return err
 	}
@@ -68,7 +66,7 @@ func (m MovieDB) SaveFilmToHat(tgUser int64, film string) error {
 
 func (m MovieDB) GetAllFilms() (Movies, error) {
 	movies := Movies{}
-	result := m.db.Model(&Movie{}).Select("label").Joins("join user_movies on movies.id=user_movies.movie_id").Scan(&movies)
+	result := m.db.Where(Movie{Status: MovieStatusUnwatched}).Find(&movies)
 	if result.Error != nil {
 		return movies, nil
 	}
@@ -80,12 +78,10 @@ func (m MovieDB) DeleteFilmFromHat(movie string) error {
 	if err != nil {
 		return err
 	}
-	association := m.db.Model(&movieObject).Association("Users")
-	if association.DB.Error != nil {
-		return err
-	}
-	err = association.Clear()
-	if association.DB.Error != nil {
+	movieObject.Status = MovieStatusWatched
+	result := m.db.Save(movieObject)
+	err = result.Error
+	if err != nil {
 		return err
 	}
 	return nil
