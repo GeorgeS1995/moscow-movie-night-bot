@@ -30,7 +30,7 @@ func (b *MovieNightTelegramBot) commandHandler(update tgbotapi.Update) {
 		go handler.action(userUpdatesChannel)
 		userUpdatesChannel <- update
 	} else if userUpdatesExist && isCmd {
-		msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Завершите предыдущую команду прежде чем вызывать текущую"))
+		msg := tgbotapi.NewMessage(chatID, "Завершите предыдущую команду прежде чем вызывать текущую")
 		_, err := b.tgBot.Send(msg)
 		log.Printf("Attempt to call commad during another command: %d, msg: %s", chatID, update.Message.Text)
 		if err != nil {
@@ -104,18 +104,16 @@ func (b *MovieNightTelegramBot) Choose(updates chan tgbotapi.Update) {
 	update = <-updates
 	answer := update.Message.Text
 
-	for _, positiveAnswer := range PositiveAnswers {
-		if positiveAnswer == answer {
-			err = b.db.DeleteFilmFromHat(choosenFilm.Label)
-			if err != nil {
-				msg = tgbotapi.NewMessage(chatID, fmt.Sprint("Попробуй снова, что-то пошло не так((("))
-			} else {
-				msg = tgbotapi.NewMessage(chatID, fmt.Sprint("Фильм удален из шляпы."))
-			}
-			b.tgBot.Send(msg)
-			return
+	_, err = ParsePositiveAnswers(answer)
+	if err != nil {
+		msg = tgbotapi.NewMessage(chatID, "Фильм остался в шляпе.")
+	} else {
+		err = b.db.DeleteFilmFromHat(choosenFilm.Label)
+		if err != nil {
+			msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
+		} else {
+			msg = tgbotapi.NewMessage(chatID, "Фильм удален из шляпы.")
 		}
 	}
-	msg = tgbotapi.NewMessage(chatID, fmt.Sprint("Фильм остался в шляпе."))
 	b.tgBot.Send(msg)
 }
