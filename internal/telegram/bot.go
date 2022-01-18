@@ -8,8 +8,6 @@ import (
 	tgbotapi "github.com/mohammadkarimi23/telegram-bot-api/v5"
 )
 
-var PositiveAnswers = [3]string{"Да", "Да", "да"}
-
 type movieNightCommand struct {
 	descriptions string
 	action       func(userUpdate chan tgbotapi.Update)
