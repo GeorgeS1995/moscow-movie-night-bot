@@ -8,17 +8,15 @@ import (
 	tgbotapi "github.com/mohammadkarimi23/telegram-bot-api/v5"
 )
 
-var PositiveAnswers = [3]string{"Да", "Да", "да"}
-
 type movieNightCommand struct {
 	descriptions string
 	action       func(userUpdate chan tgbotapi.Update)
 }
 
 type MovieNightTelegramBot struct {
-	tgBot       *tgbotapi.BotAPI
+	TGBot       BotAPIInterface
 	cfg         cfg.Config
-	db          db.MovieDBInterface
+	DB          db.MovieDBInterface
 	commands    map[string]movieNightCommand
 	userUpdates map[int64]chan tgbotapi.Update
 }
@@ -29,7 +27,7 @@ func NewMovieBot(cfg cfg.Config, db db.MovieDB) (MovieNightTelegramBot, error) {
 		return MovieNightTelegramBot{}, err
 	}
 
-	MovieBotIntance := MovieNightTelegramBot{tgBot: bot, cfg: cfg, db: db}
+	MovieBotIntance := MovieNightTelegramBot{TGBot: bot, cfg: cfg, DB: db}
 	commands := map[string]movieNightCommand{
 		"start":   {descriptions: "Приветствие от бота", action: MovieBotIntance.Greetings},
 		"help":    {descriptions: "Приветствие от бота", action: MovieBotIntance.Greetings},
@@ -51,7 +49,7 @@ func (b *MovieNightTelegramBot) Start() error {
 	u.Timeout = b.cfg.TelegramLongpullingTimeout
 	u.Timeout = 60
 
-	updates, err := b.tgBot.GetUpdatesChan(u)
+	updates, err := b.TGBot.GetUpdatesChan(u)
 	if err != nil {
 		return err
 	}
@@ -72,7 +70,7 @@ func (b *MovieNightTelegramBot) setCommands(cmd map[string]movieNightCommand) er
 	for k, v := range cmd {
 		cmdList = append(cmdList, tgbotapi.BotCommand{Command: k, Description: v.descriptions})
 	}
-	err := b.tgBot.SetMyCommands(cmdList)
+	err := b.TGBot.SetMyCommands(cmdList)
 	if err != nil {
 		return err
 	}
