@@ -13,21 +13,39 @@ type movieNightCommand struct {
 	action       func(userUpdate chan tgbotapi.Update)
 }
 
+// Proxy struct to avoid problem with tests in Send() method due to private interface Chattable
+type TgBotAPIProxy struct {
+	*tgbotapi.BotAPI
+}
+
+func NewTgBotAPIProxy(key string) (*TgBotAPIProxy, error) {
+	bot, err := tgbotapi.NewBotAPI(key)
+	if err != nil {
+		return &TgBotAPIProxy{}, nil
+	}
+	return &TgBotAPIProxy{bot}, nil
+}
+
+func (t *TgBotAPIProxy) SendMsg(msg tgbotapi.MessageConfig) (tgbotapi.Message, error) {
+	res, err := t.Send(msg)
+	return res, err
+}
+
 type MovieNightTelegramBot struct {
-	tgBot       *tgbotapi.BotAPI
+	TGBot       BotAPIInterface
 	cfg         cfg.Config
-	db          db.MovieDBInterface
+	DB          db.MovieDBInterface
 	commands    map[string]movieNightCommand
 	userUpdates map[int64]chan tgbotapi.Update
 }
 
 func NewMovieBot(cfg cfg.Config, db db.MovieDB) (MovieNightTelegramBot, error) {
-	bot, err := tgbotapi.NewBotAPI(cfg.TelegramKey)
+	bot, err := NewTgBotAPIProxy(cfg.TelegramKey)
 	if err != nil {
 		return MovieNightTelegramBot{}, err
 	}
 
-	MovieBotIntance := MovieNightTelegramBot{tgBot: bot, cfg: cfg, db: db}
+	MovieBotIntance := MovieNightTelegramBot{TGBot: bot, cfg: cfg, DB: db}
 	commands := map[string]movieNightCommand{
 		"start":   {descriptions: "Приветствие от бота", action: MovieBotIntance.Greetings},
 		"help":    {descriptions: "Приветствие от бота", action: MovieBotIntance.Greetings},
@@ -49,7 +67,7 @@ func (b *MovieNightTelegramBot) Start() error {
 	u.Timeout = b.cfg.TelegramLongpullingTimeout
 	u.Timeout = 60
 
-	updates, err := b.tgBot.GetUpdatesChan(u)
+	updates, err := b.TGBot.GetUpdatesChan(u)
 	if err != nil {
 		return err
 	}
@@ -70,7 +88,7 @@ func (b *MovieNightTelegramBot) setCommands(cmd map[string]movieNightCommand) er
 	for k, v := range cmd {
 		cmdList = append(cmdList, tgbotapi.BotCommand{Command: k, Description: v.descriptions})
 	}
-	err := b.tgBot.SetMyCommands(cmdList)
+	err := b.TGBot.SetMyCommands(cmdList)
 	if err != nil {
 		return err
 	}
