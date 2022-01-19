@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"testing"
 
 	internalDB "github.com/GeorgeS1995/moscow-movie-night-bot/internal/db"
@@ -17,7 +18,11 @@ func (t *TestTgBot) GetUpdatesChan(config tgbotapi.UpdateConfig) (tgbotapi.Updat
 	return make(chan tgbotapi.Update), nil
 }
 
-func (t *TestTgBot) Send(c tgbotapi.Chattable) (tgbotapi.Message, error) {
+func (t *TestTgBot) SendMsg(msg tgbotapi.MessageConfig) (tgbotapi.Message, error) {
+	if msg.Text != t.answers[0] {
+		t.testClient.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", msg.Text, t.answers[0]))
+	}
+	t.answers = t.answers[1:]
 	return tgbotapi.Message{}, nil
 }
 
@@ -52,6 +57,6 @@ func TestChooseCMD(t *testing.T) {
 		go testTelegramClientInst.Choose(updates)
 		updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 1}}}
 		updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: confirmAnswer, Chat: &tgbotapi.Chat{ID: 1}}}
+		t.Logf(fmt.Sprintf("TestChooseCMD complete for answer %s", confirmAnswer))
 	}
-
 }

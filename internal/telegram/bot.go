@@ -13,6 +13,24 @@ type movieNightCommand struct {
 	action       func(userUpdate chan tgbotapi.Update)
 }
 
+// Proxy struct to avoid problem with tests in Send() method due to private interface Chattable
+type TgBotAPIProxy struct {
+	*tgbotapi.BotAPI
+}
+
+func NewTgBotAPIProxy(key string) (*TgBotAPIProxy, error) {
+	bot, err := tgbotapi.NewBotAPI(key)
+	if err != nil {
+		return &TgBotAPIProxy{}, nil
+	}
+	return &TgBotAPIProxy{bot}, nil
+}
+
+func (t *TgBotAPIProxy) SendMsg(msg tgbotapi.MessageConfig) (tgbotapi.Message, error) {
+	res, err := t.Send(msg)
+	return res, err
+}
+
 type MovieNightTelegramBot struct {
 	TGBot       BotAPIInterface
 	cfg         cfg.Config
@@ -22,7 +40,7 @@ type MovieNightTelegramBot struct {
 }
 
 func NewMovieBot(cfg cfg.Config, db db.MovieDB) (MovieNightTelegramBot, error) {
-	bot, err := tgbotapi.NewBotAPI(cfg.TelegramKey)
+	bot, err := NewTgBotAPIProxy(cfg.TelegramKey)
 	if err != nil {
 		return MovieNightTelegramBot{}, err
 	}

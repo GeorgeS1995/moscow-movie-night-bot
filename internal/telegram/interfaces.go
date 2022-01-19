@@ -6,6 +6,6 @@ import (
 
 type BotAPIInterface interface {
 	GetUpdatesChan(config tgbotapi.UpdateConfig) (tgbotapi.UpdatesChannel, error)
-	Send(c tgbotapi.Chattable) (tgbotapi.Message, error)
+	SendMsg(msg tgbotapi.MessageConfig) (tgbotapi.Message, error)
 	SetMyCommands(commands []tgbotapi.BotCommand) error
 }
