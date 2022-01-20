@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 
+	internalDB "github.com/GeorgeS1995/moscow-movie-night-bot/internal/db"
 	tgbotapi "github.com/mohammadkarimi23/telegram-bot-api/v5"
 )
 
@@ -66,17 +67,32 @@ func (b *MovieNightTelegramBot) AddFilmToHat(updates chan tgbotapi.Update) {
 	b.TGBot.SendMsg(msg)
 }
 
-func (b *MovieNightTelegramBot) GetAllFilms(updates chan tgbotapi.Update) {
+func (b *MovieNightTelegramBot) GetUnwatchedFilms(updates chan tgbotapi.Update) {
 	update := <-updates
 	chatID := update.Message.Chat.ID
 	defer delete(b.userUpdates, chatID)
-	filmList, err := b.DB.GetAllFilms()
+	filmList, err := b.DB.GetFilms(internalDB.MovieStatusUnwatched)
 	msg := tgbotapi.MessageConfig{}
 	if err != nil {
 		msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
-		log.Println("Can't get film list: ", err)
+		log.Println("Can't get film list unwatched films: ", err)
 	} else {
 		msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Список фильмов на выбор:\n%s", filmList.GetMoviewList()))
+	}
+	b.TGBot.SendMsg(msg)
+}
+
+func (b *MovieNightTelegramBot) GetWatchedFilms(updates chan tgbotapi.Update) {
+	update := <-updates
+	chatID := update.Message.Chat.ID
+	defer delete(b.userUpdates, chatID)
+	filmList, err := b.DB.GetFilms(internalDB.MovieStatusWatched)
+	msg := tgbotapi.MessageConfig{}
+	if err != nil {
+		msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
+		log.Println("Can't get film list watched films: ", err)
+	} else {
+		msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Список просмотренных фильмов:\n%s", filmList.GetMoviewList()))
 	}
 	b.TGBot.SendMsg(msg)
 }
@@ -85,7 +101,7 @@ func (b *MovieNightTelegramBot) Choose(updates chan tgbotapi.Update) {
 	update := <-updates
 	chatID := update.Message.Chat.ID
 	defer delete(b.userUpdates, chatID)
-	filmList, err := b.DB.GetAllFilms()
+	filmList, err := b.DB.GetFilms(internalDB.MovieStatusUnwatched)
 	msg := tgbotapi.MessageConfig{}
 	if err != nil {
 		msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")

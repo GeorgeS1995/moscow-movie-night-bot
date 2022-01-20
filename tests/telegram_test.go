@@ -10,8 +10,7 @@ import (
 )
 
 type TestTgBot struct {
-	answers    []string
-	testClient *testing.T
+	AnswerChan chan string
 }
 
 func (t *TestTgBot) GetUpdatesChan(config tgbotapi.UpdateConfig) (tgbotapi.UpdatesChannel, error) {
@@ -19,10 +18,7 @@ func (t *TestTgBot) GetUpdatesChan(config tgbotapi.UpdateConfig) (tgbotapi.Updat
 }
 
 func (t *TestTgBot) SendMsg(msg tgbotapi.MessageConfig) (tgbotapi.Message, error) {
-	if msg.Text != t.answers[0] {
-		t.testClient.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", msg.Text, t.answers[0]))
-	}
-	t.answers = t.answers[1:]
+	t.AnswerChan <- msg.Text
 	return tgbotapi.Message{}, nil
 }
 
@@ -30,33 +26,67 @@ func (t *TestTgBot) SetMyCommands(commands []tgbotapi.BotCommand) error {
 	return nil
 }
 
-type TestDBClient struct{}
+type TestDBClient struct {
+	db internalDB.Movies
+}
 
 func (t *TestDBClient) SaveFilmToHat(tgUser int64, film string) error {
 	return nil
 }
 
-func (t *TestDBClient) GetAllFilms() (internalDB.Movies, error) {
-	return internalDB.Movies{internalDB.Movie{}, internalDB.Movie{}}, nil
+func (t *TestDBClient) GetFilms(status internalDB.MovieStatus) (internalDB.Movies, error) {
+	result := make(internalDB.Movies, 0)
+	for _, m := range t.db {
+		if m.Status == status {
+			result = append(result, m)
+		}
+	}
+	return result, nil
 }
 
 func (t *TestDBClient) DeleteFilmFromHat(movie string) error {
 	return nil
 }
 
-func NewTestMovieBot(botAnswers []string, testClient *testing.T) telegram.MovieNightTelegramBot {
-	return telegram.MovieNightTelegramBot{TGBot: &TestTgBot{answers: botAnswers}, DB: &TestDBClient{}}
+func NewTestMovieBot(inmemoryDB internalDB.Movies) (telegram.MovieNightTelegramBot, chan string) {
+	answerChan := make(chan string)
+	return telegram.MovieNightTelegramBot{TGBot: &TestTgBot{AnswerChan: answerChan}, DB: &TestDBClient{db: inmemoryDB}}, answerChan
 }
 
 func TestChooseCMD(t *testing.T) {
 	confirmAnswers := [3]string{"ДА", "Да", "да"}
 	for _, confirmAnswer := range confirmAnswers {
 		botAnswers := []string{".\nВы уверены, что хотите посмотреть этот фильм?\nЕсли вы ответите ДА, выбранный фильм будет удален из шляпы навсегда.\nЕсли ответите что-нибудь еще, то он останется в шляпе.", "Фильм удален из шляпы."}
-		testTelegramClientInst := NewTestMovieBot(botAnswers, t)
+		testTelegramClientInst, answerChan := NewTestMovieBot(internalDB.Movies{internalDB.Movie{Status: internalDB.MovieStatusUnwatched}, internalDB.Movie{Status: internalDB.MovieStatusUnwatched}})
 		updates := make(chan tgbotapi.Update)
 		go testTelegramClientInst.Choose(updates)
 		updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 1}}}
+		answer := <-answerChan
+		if answer != botAnswers[0] {
+			t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, botAnswers[0]))
+			return
+		}
 		updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: confirmAnswer, Chat: &tgbotapi.Chat{ID: 1}}}
+		answer = <-answerChan
+		if answer != botAnswers[1] {
+			t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, botAnswers[1]))
+			return
+		}
 		t.Logf(fmt.Sprintf("TestChooseCMD complete for answer %s", confirmAnswer))
 	}
+}
+
+func TestListWatchedCMD(t *testing.T) {
+	inmemoryDB := internalDB.Movies{internalDB.Movie{Label: "A", Status: internalDB.MovieStatusUnwatched}, internalDB.Movie{Label: "B", Status: internalDB.MovieStatusWatched}}
+	testTelegramClientInst, answerChan := NewTestMovieBot(inmemoryDB)
+	updates := make(chan tgbotapi.Update)
+	go testTelegramClientInst.GetWatchedFilms(updates)
+	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 1}}}
+	answer := <-answerChan
+	expectedAnswer := "Список просмотренных фильмов:\nB\n"
+	if answer != expectedAnswer {
+		t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, expectedAnswer))
+		return
+	}
+	t.Logf("TestListWatchedCMD complete")
 }

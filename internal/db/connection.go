@@ -64,9 +64,9 @@ func (m MovieDB) SaveFilmToHat(tgUser int64, film string) error {
 	return nil
 }
 
-func (m MovieDB) GetAllFilms() (Movies, error) {
+func (m MovieDB) GetFilms(status MovieStatus) (Movies, error) {
 	movies := Movies{}
-	result := m.db.Where(Movie{Status: MovieStatusUnwatched}).Find(&movies)
+	result := m.db.Where("status = ?", status).Find(&movies)
 	if result.Error != nil {
 		return movies, nil
 	}
