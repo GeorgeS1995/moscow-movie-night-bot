@@ -47,11 +47,12 @@ func NewMovieBot(cfg cfg.Config, db db.MovieDB) (MovieNightTelegramBot, error) {
 
 	MovieBotIntance := MovieNightTelegramBot{TGBot: bot, cfg: cfg, DB: db}
 	commands := map[string]movieNightCommand{
-		"start":   {descriptions: "Приветствие от бота", action: MovieBotIntance.Greetings},
-		"help":    {descriptions: "Приветствие от бота", action: MovieBotIntance.Greetings},
-		"newfilm": {descriptions: "Добавить фильм в шляпу", action: MovieBotIntance.AddFilmToHat},
-		"list":    {descriptions: "Список фильмов в шляпе", action: MovieBotIntance.GetAllFilms},
-		"choose":  {descriptions: "Выбрать фильм", action: MovieBotIntance.Choose},
+		"start":        {descriptions: "Приветствие от бота", action: MovieBotIntance.Greetings},
+		"help":         {descriptions: "Приветствие от бота", action: MovieBotIntance.Greetings},
+		"newfilm":      {descriptions: "Добавить фильм в шляпу", action: MovieBotIntance.AddFilmToHat},
+		"list":         {descriptions: "Список фильмов в шляпе", action: MovieBotIntance.GetUnwatchedFilms},
+		"choose":       {descriptions: "Выбрать фильм", action: MovieBotIntance.Choose},
+		"list_watched": {descriptions: "Список просмотренных фильмов", action: MovieBotIntance.GetWatchedFilms},
 	}
 	MovieBotIntance.commands = commands
 	MovieBotIntance.userUpdates = make(map[int64]chan tgbotapi.Update)
