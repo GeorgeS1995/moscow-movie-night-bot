@@ -3,26 +3,30 @@ package main
 import (
 	"log"
 
-	cfg "github.com/GeorgeS1995/moscow-movie-night-bot/internal/cfg"
+	"github.com/GeorgeS1995/moscow-movie-night-bot/internal/cfg"
 	"github.com/GeorgeS1995/moscow-movie-night-bot/internal/db"
 	tg "github.com/GeorgeS1995/moscow-movie-night-bot/internal/telegram"
 )
 
 func main() {
-	cfg, err := cfg.NewConfig()
+	cfgObj, err := cfg.NewConfig()
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-	db, err := db.NewMovieDB(cfg.DataBaseName)
+	dbConn, err := db.InitMovieDB(cfgObj.DataBaseName)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-	bot, err := tg.NewMovieBot(cfg, db)
+	bot, err := tg.NewMovieBot(cfgObj, dbConn)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-	bot.Start()
+	err = bot.Start()
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
 }

@@ -9,6 +9,8 @@ import (
 	tgbotapi "github.com/mohammadkarimi23/telegram-bot-api/v5"
 )
 
+const AbortKeyboardMsg = "Отмена"
+
 func (b *MovieNightTelegramBot) commandHandler(update tgbotapi.Update) {
 	chatID := update.Message.Chat.ID
 	isCmd := update.Message.IsCommand()
@@ -30,13 +32,6 @@ func (b *MovieNightTelegramBot) commandHandler(update tgbotapi.Update) {
 		b.userUpdates[chatID] = userUpdatesChannel
 		go handler.action(userUpdatesChannel)
 		userUpdatesChannel <- update
-	} else if userUpdatesExist && isCmd {
-		msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Завершите предыдущую команду прежде чем вызывать текущую"))
-		_, err := b.TGBot.SendMsg(msg)
-		log.Printf("Attempt to call commad during another command: %d, msg: %s", chatID, update.Message.Text)
-		if err != nil {
-			log.Printf("Can't send msg, user: %d, msg: %s", chatID, update.Message.Text)
-		}
 	} else if userUpdatesExist {
 		userUpdatesChannel <- update
 	}
@@ -122,14 +117,77 @@ func (b *MovieNightTelegramBot) Choose(updates chan tgbotapi.Update) {
 
 	_, err = ParsePositiveAnswers(answer)
 	if err != nil {
-		msg = tgbotapi.NewMessage(chatID, fmt.Sprint("Фильм остался в шляпе."))
+		msg = tgbotapi.NewMessage(chatID, "Фильм остался в шляпе.")
 	} else {
 		err = b.DB.DeleteFilmFromHat(choosenFilm.Label)
 		if err != nil {
-			msg = tgbotapi.NewMessage(chatID, fmt.Sprint("Попробуй снова, что-то пошло не так((("))
+			msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
 		} else {
-			msg = tgbotapi.NewMessage(chatID, fmt.Sprint("Фильм удален из шляпы."))
+			msg = tgbotapi.NewMessage(chatID, "Фильм удален из шляпы.")
 		}
 	}
 	b.TGBot.SendMsg(msg)
+}
+
+func (b *MovieNightTelegramBot) catchAnswer(updates chan tgbotapi.Update) (string, error) {
+	update := <-updates
+	text := update.Message.Text
+	if text == AbortKeyboardMsg {
+		return "", &BotUserAbortError{BotError{update.Message.Chat.ID}}
+	}
+	return text, nil
+}
+
+func (b *MovieNightTelegramBot) editAddedFilmDeferHandler(chatID int64, msg *tgbotapi.MessageConfig) {
+	delete(b.userUpdates, chatID)
+	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+	_, err := b.TGBot.SendMsg(*msg)
+	if err != nil {
+		log.Printf("Can't restore keyboard for user telegram_id %d", chatID)
+	}
+}
+
+func (b *MovieNightTelegramBot) EditAddedFilm(updates chan tgbotapi.Update) {
+	update := <-updates
+	chatID := update.Message.Chat.ID
+	msg := tgbotapi.NewMessage(chatID, "Напишите название редактируемого фильма.")
+	defer b.editAddedFilmDeferHandler(chatID, &msg)
+	msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("Отмена"),
+		))
+	b.TGBot.SendMsg(msg)
+	filmLabel, err := b.catchAnswer(updates)
+	if err != nil {
+		msg = tgbotapi.NewMessage(chatID, err.Error())
+		return
+	}
+	movie, err := b.DB.GetSingleFilm(internalDB.Movie{Label: filmLabel})
+	if err != nil {
+		msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
+		return
+	} else if movie.ID == 0 {
+		msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Фильм %s, не найден в шляпе", filmLabel))
+		return
+	} else if movie.Status == internalDB.MovieStatusWatched {
+		msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Фильм %s, уже в просмотренных", filmLabel))
+		return
+	} else if movie.TelegramID != chatID {
+		msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Фильм %s, не был добавлен вами", filmLabel))
+		return
+	}
+	msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Введите исправленное название для фильма %s", filmLabel))
+	b.TGBot.SendMsg(msg)
+	newFilmLabel, err := b.catchAnswer(updates)
+	if err != nil {
+		msg = tgbotapi.NewMessage(chatID, err.Error())
+		return
+	}
+
+	err = b.DB.UpdateSingleFilm(movie.ID, newFilmLabel)
+	if err != nil {
+		msg = tgbotapi.NewMessage(chatID, err.Error())
+		return
+	}
+	msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Фильм %s, переименован в %s", filmLabel, newFilmLabel))
 }
