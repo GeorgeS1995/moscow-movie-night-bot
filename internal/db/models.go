@@ -21,6 +21,14 @@ type Movie struct {
 	Status MovieStatus
 }
 
+// Returning by GetSingleFilm func
+type SingleMovie struct {
+	ID         uint
+	Label      string
+	Status     MovieStatus
+	TelegramID int64
+}
+
 type Movies []Movie
 
 func (movies Movies) GetMoviewList() string {
