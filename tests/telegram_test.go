@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 	"io/ioutil"
 	"log"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -59,20 +60,22 @@ func NewTestMovieBot(sqlTestData string) (telegram.MovieNightTelegramBot, chan s
 func TestChooseCMD(t *testing.T) {
 	confirmAnswers := [3]string{"ДА", "Да", "да"}
 	for _, confirmAnswer := range confirmAnswers {
-		botAnswers := []string{"A.\nВы уверены, что хотите посмотреть этот фильм?\nЕсли вы ответите ДА, выбранный фильм будет удален из шляпы навсегда.\nЕсли ответите что-нибудь еще, то он останется в шляпе.", "Фильм удален из шляпы."}
-		testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/one_watched_one_unwatched.sql")
+		testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/test_data.sql")
 		updates := make(chan tgbotapi.Update)
 		go testTelegramClientInst.Choose(updates)
 		updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 1}}}
 		answer := <-answerChan
-		if answer != botAnswers[0] {
-			t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, botAnswers[0]))
+		regexStr := "Film(1|2)\\.\nВы уверены, что хотите посмотреть этот фильм\\?\nЕсли вы ответите ДА, выбранный фильм будет удален из шляпы навсегда\\.\nЕсли ответите что-нибудь еще, то он останется в шляпе\\."
+		matched, _ := regexp.MatchString(regexStr, answer)
+		if !matched {
+			t.Errorf(fmt.Sprintf("Not expected bot answer: %s, template: %s", answer, regexStr))
 			return
 		}
 		updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: confirmAnswer, Chat: &tgbotapi.Chat{ID: 1}}}
 		answer = <-answerChan
-		if answer != botAnswers[1] {
-			t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, botAnswers[1]))
+		expectedAnswer := "Фильм удален из шляпы."
+		if answer != expectedAnswer {
+			t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, expectedAnswer))
 			return
 		}
 		t.Logf(fmt.Sprintf("TestChooseCMD complete for answer %s", confirmAnswer))
@@ -80,12 +83,12 @@ func TestChooseCMD(t *testing.T) {
 }
 
 func TestListWatchedCMD(t *testing.T) {
-	testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/one_watched_one_unwatched.sql")
+	testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/test_data.sql")
 	updates := make(chan tgbotapi.Update)
 	go testTelegramClientInst.GetWatchedFilms(updates)
 	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 1}}}
 	answer := <-answerChan
-	expectedAnswer := "Список просмотренных фильмов:\nB\n"
+	expectedAnswer := "Список просмотренных фильмов:\nWatchedFilm\n"
 	if answer != expectedAnswer {
 		t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, expectedAnswer))
 		return
@@ -93,8 +96,22 @@ func TestListWatchedCMD(t *testing.T) {
 	t.Logf("TestListWatchedCMD complete")
 }
 
+func TestListMyFilmCMD(t *testing.T) {
+	testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/test_data.sql")
+	updates := make(chan tgbotapi.Update)
+	go testTelegramClientInst.GetMyFilm(updates)
+	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 100}}}
+	answer := <-answerChan
+	expectedAnswer := "Список ваших фильмов на очереди:\nFilm1\n"
+	if answer != expectedAnswer {
+		t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, expectedAnswer))
+		return
+	}
+	t.Logf("TestListMyFilmCMD complete")
+}
+
 func TestEditAddedFilmFilmNotFound(t *testing.T) {
-	testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/editing_cmd_test_data.sql")
+	testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/test_data.sql")
 	updates := make(chan tgbotapi.Update)
 	go testTelegramClientInst.EditAddedFilm(updates)
 	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 1}}}
@@ -116,7 +133,7 @@ func TestEditAddedFilmFilmNotFound(t *testing.T) {
 }
 
 func TestEditAddedFilmNotUserFilm(t *testing.T) {
-	testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/editing_cmd_test_data.sql")
+	testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/test_data.sql")
 	updates := make(chan tgbotapi.Update)
 	go testTelegramClientInst.EditAddedFilm(updates)
 	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 1}}}
@@ -138,7 +155,7 @@ func TestEditAddedFilmNotUserFilm(t *testing.T) {
 }
 
 func TestEditAddedWatchedFilm(t *testing.T) {
-	testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/editing_cmd_test_data.sql")
+	testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/test_data.sql")
 	updates := make(chan tgbotapi.Update)
 	go testTelegramClientInst.EditAddedFilm(updates)
 	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 1}}}
@@ -169,7 +186,7 @@ func getSimpleFilm(db *gorm.DB, label string) (SimpleMovieResult, error) {
 }
 
 func TestEditAddedOK(t *testing.T) {
-	testTelegramClientInst, answerChan, setUpConn := NewTestMovieBot("./test_data/editing_cmd_test_data.sql")
+	testTelegramClientInst, answerChan, setUpConn := NewTestMovieBot("./test_data/test_data.sql")
 	updates := make(chan tgbotapi.Update)
 	go testTelegramClientInst.EditAddedFilm(updates)
 	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 100}}}
@@ -214,7 +231,7 @@ func TestEditAddedOK(t *testing.T) {
 }
 
 func TestEditAddedFilmCancelCMD(t *testing.T) {
-	testTelegramClientInst, answerChan, setUpConn := NewTestMovieBot("./test_data/editing_cmd_test_data.sql")
+	testTelegramClientInst, answerChan, setUpConn := NewTestMovieBot("./test_data/test_data.sql")
 	updates := make(chan tgbotapi.Update)
 	go testTelegramClientInst.EditAddedFilm(updates)
 	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 100}}}

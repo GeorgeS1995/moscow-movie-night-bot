@@ -54,6 +54,7 @@ func NewMovieBot(cfg cfg.Config, db db.MovieDB) (MovieNightTelegramBot, error) {
 		"choose":       {descriptions: "Выбрать фильм", action: MovieBotIntance.Choose},
 		"list_watched": {descriptions: "Список просмотренных фильмов", action: MovieBotIntance.GetWatchedFilms},
 		"editfilm":     {descriptions: "Редактировать свой добавленный фильм", action: MovieBotIntance.EditAddedFilm},
+		"my_film":      {descriptions: "Фильмы, добавленные мной", action: MovieBotIntance.GetMyFilm},
 	}
 	MovieBotIntance.commands = commands
 	MovieBotIntance.userUpdates = make(map[int64]chan tgbotapi.Update)

@@ -66,13 +66,14 @@ func (b *MovieNightTelegramBot) GetUnwatchedFilms(updates chan tgbotapi.Update) 
 	update := <-updates
 	chatID := update.Message.Chat.ID
 	defer delete(b.userUpdates, chatID)
-	filmList, err := b.DB.GetFilms(internalDB.MovieStatusUnwatched)
+	unwatchedStatus := internalDB.MovieStatusUnwatched
+	filmList, err := b.DB.GetFilms(internalDB.MovieSearch{Status: &unwatchedStatus})
 	msg := tgbotapi.MessageConfig{}
 	if err != nil {
 		msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
 		log.Println("Can't get film list unwatched films: ", err)
 	} else {
-		msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Список фильмов на выбор:\n%s", filmList.GetMoviewList()))
+		msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Список фильмов на выбор:\n%s", filmList.GetMoviesList(true)))
 	}
 	b.TGBot.SendMsg(msg)
 }
@@ -81,13 +82,14 @@ func (b *MovieNightTelegramBot) GetWatchedFilms(updates chan tgbotapi.Update) {
 	update := <-updates
 	chatID := update.Message.Chat.ID
 	defer delete(b.userUpdates, chatID)
-	filmList, err := b.DB.GetFilms(internalDB.MovieStatusWatched)
+	watchedStatus := internalDB.MovieStatusWatched
+	filmList, err := b.DB.GetFilms(internalDB.MovieSearch{Status: &watchedStatus})
 	msg := tgbotapi.MessageConfig{}
 	if err != nil {
 		msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
 		log.Println("Can't get film list watched films: ", err)
 	} else {
-		msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Список просмотренных фильмов:\n%s", filmList.GetMoviewList()))
+		msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Список просмотренных фильмов:\n%s", filmList.GetMoviesList(false)))
 	}
 	b.TGBot.SendMsg(msg)
 }
@@ -96,7 +98,8 @@ func (b *MovieNightTelegramBot) Choose(updates chan tgbotapi.Update) {
 	update := <-updates
 	chatID := update.Message.Chat.ID
 	defer delete(b.userUpdates, chatID)
-	filmList, err := b.DB.GetFilms(internalDB.MovieStatusUnwatched)
+	unwatchedStatus := internalDB.MovieStatusUnwatched
+	filmList, err := b.DB.GetFilms(internalDB.MovieSearch{Status: &unwatchedStatus})
 	msg := tgbotapi.MessageConfig{}
 	if err != nil {
 		msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
@@ -190,4 +193,20 @@ func (b *MovieNightTelegramBot) EditAddedFilm(updates chan tgbotapi.Update) {
 		return
 	}
 	msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Фильм %s, переименован в %s", filmLabel, newFilmLabel))
+}
+
+func (b *MovieNightTelegramBot) GetMyFilm(updates chan tgbotapi.Update) {
+	update := <-updates
+	chatID := update.Message.Chat.ID
+	defer delete(b.userUpdates, chatID)
+	unwatchedStatus := internalDB.MovieStatusUnwatched
+	filmList, err := b.DB.GetFilms(internalDB.MovieSearch{Status: &unwatchedStatus, TelegramID: &chatID})
+	msg := tgbotapi.MessageConfig{}
+	if err != nil {
+		msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
+		log.Println("Can't get film list watched films: ", err)
+	} else {
+		msg = tgbotapi.NewMessage(chatID, fmt.Sprintf("Список ваших фильмов на очереди:\n%s", filmList.GetMoviesList(false)))
+	}
+	b.TGBot.SendMsg(msg)
 }
