@@ -33,7 +33,7 @@ func (t *TgBotAPIProxy) SendMsg(msg tgbotapi.MessageConfig) (tgbotapi.Message, e
 
 type MovieNightTelegramBot struct {
 	TGBot       BotAPIInterface
-	cfg         cfg.Config
+	CFG         cfg.Config
 	DB          db.MovieDBInterface
 	commands    map[string]movieNightCommand
 	userUpdates map[int64]chan tgbotapi.Update
@@ -45,7 +45,7 @@ func NewMovieBot(cfg cfg.Config, db db.MovieDB) (MovieNightTelegramBot, error) {
 		return MovieNightTelegramBot{}, err
 	}
 
-	MovieBotIntance := MovieNightTelegramBot{TGBot: bot, cfg: cfg, DB: db}
+	MovieBotIntance := MovieNightTelegramBot{TGBot: bot, CFG: cfg, DB: db}
 	commands := map[string]movieNightCommand{
 		"start":        {descriptions: "Приветствие от бота", action: MovieBotIntance.Greetings},
 		"help":         {descriptions: "Приветствие от бота", action: MovieBotIntance.Greetings},
@@ -67,7 +67,7 @@ func NewMovieBot(cfg cfg.Config, db db.MovieDB) (MovieNightTelegramBot, error) {
 
 func (b *MovieNightTelegramBot) Start() error {
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = b.cfg.TelegramLongpullingTimeout
+	u.Timeout = b.CFG.TelegramLongpullingTimeout
 	u.Timeout = 60
 
 	updates, err := b.TGBot.GetUpdatesChan(u)
