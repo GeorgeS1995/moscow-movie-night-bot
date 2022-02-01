@@ -142,3 +142,32 @@ func TestGetDataBaseName(t *testing.T) {
 		t.Logf("GetDataBaseName testpased for case %+v", data)
 	}
 }
+
+var getFilmLimitTestCases = []EnvTestData{
+	{EnvSimpleTestData{"", "0"}, nil},
+	{EnvSimpleTestData{"0", "0"}, nil},
+	{EnvSimpleTestData{"00", "0"}, nil},
+	{EnvSimpleTestData{"10", "10"}, nil},
+	{EnvSimpleTestData{"asdsa", "0"}, &cfg.ConfigError{Err: errors.New("strconv.ParseInt: parsing \"asdsa\": invalid syntax")}},
+}
+
+func TestGetAddingFilmLimit(t *testing.T) {
+	for _, data := range getFilmLimitTestCases {
+		err := reloadEnv("FILM_LIMIT", data)
+		if err != nil {
+			t.Fatal(err)
+			return
+		}
+		filmLimit, err := cfg.GetAddingFilmLimit()
+		filmLimitStr := fmt.Sprint(filmLimit)
+		if filmLimitStr != data.expectedEnv {
+			t.Error("Not expected timeout:", filmLimitStr, data.expectedEnv)
+			continue
+		}
+		if err != nil && data.err != nil && err.Error() != data.err.Error() {
+			t.Error("Not expected error response:", err.Error(), data.err.Error())
+			continue
+		}
+		t.Logf("TestGetAddingFilmLimit testpased for case %+v", data)
+	}
+}
