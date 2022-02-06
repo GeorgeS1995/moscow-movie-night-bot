@@ -12,6 +12,7 @@ type Config struct {
 	BotDebug                   bool
 	TelegramKey                string
 	TelegramLongpullingTimeout int
+	FilmLimit                  int
 }
 
 func NewConfig() (Config, error) {
@@ -32,11 +33,17 @@ func NewConfig() (Config, error) {
 
 	dbName := GetDataBaseName()
 
+	filmLimit, err := GetAddingFilmLimit()
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
 		DataBaseName:               dbName,
 		BotDebug:                   botDebug,
 		TelegramKey:                telegramKey,
-		TelegramLongpullingTimeout: telegramLongpullingTimeout}, nil
+		TelegramLongpullingTimeout: telegramLongpullingTimeout,
+		FilmLimit:                  filmLimit}, nil
 }
 
 func GetBotDebug() (bool, error) {
@@ -74,4 +81,16 @@ func GetDataBaseName() string {
 		return "movie.db"
 	}
 	return dbName
+}
+
+func GetAddingFilmLimit() (int, error) {
+	filmLimit := os.Getenv("FILM_LIMIT")
+	if filmLimit == "" {
+		return 0, nil
+	}
+	filmLimitInt, err := strconv.ParseInt(filmLimit, 10, 0)
+	if err != nil {
+		return 0, &ConfigError{err}
+	}
+	return int(filmLimitInt), nil
 }

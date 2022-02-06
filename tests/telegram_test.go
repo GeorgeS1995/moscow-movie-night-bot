@@ -3,6 +3,7 @@ package tests
 import (
 	"database/sql"
 	"fmt"
+	"github.com/GeorgeS1995/moscow-movie-night-bot/internal/cfg"
 	"gorm.io/gorm"
 	"io/ioutil"
 	"log"
@@ -44,8 +45,9 @@ func migrateTestData(db *gorm.DB, pathToSql string) {
 }
 
 type SimpleMovieResult struct {
-	ID    uint
-	Label string
+	ID         uint
+	Label      string
+	TelegramId int64
 }
 
 func NewTestMovieBot(sqlTestData string) (telegram.MovieNightTelegramBot, chan string, *gorm.DB) {
@@ -178,7 +180,7 @@ func TestEditAddedWatchedFilm(t *testing.T) {
 
 func getSimpleFilm(db *gorm.DB, label string) (SimpleMovieResult, error) {
 	simpleMovie := SimpleMovieResult{}
-	result := db.Raw("select id, label from movies where label=@label", sql.Named("label", label)).Scan(&simpleMovie)
+	result := db.Raw("select movies.id, label, telegram_id from movies join users where label=@label", sql.Named("label", label)).Scan(&simpleMovie)
 	if result.Error != nil {
 		return simpleMovie, result.Error
 	}
@@ -223,8 +225,8 @@ func TestEditAddedOK(t *testing.T) {
 		t.Errorf(fmt.Sprintf("Can't get film %s from db: %s", newFimlLabel, err.Error()))
 		return
 	}
-	if dbResultBeforeCmdCall.ID != dbResultAfterCmdCall.ID || dbResultBeforeCmdCall.Label != searchedFims || dbResultAfterCmdCall.Label != newFimlLabel {
-		t.Errorf(fmt.Sprintf("Wrong DB result, old id: %d, new id: %d, old label: %s, new label: %s", dbResultBeforeCmdCall.ID, dbResultAfterCmdCall.ID, dbResultBeforeCmdCall.Label, dbResultAfterCmdCall.Label))
+	if dbResultBeforeCmdCall.TelegramId != dbResultBeforeCmdCall.TelegramId || dbResultBeforeCmdCall.ID != dbResultAfterCmdCall.ID || dbResultBeforeCmdCall.Label != searchedFims || dbResultAfterCmdCall.Label != newFimlLabel {
+		t.Errorf(fmt.Sprintf("Wrong DB result, old tg_id: %d, new tg_id: %d, old id: %d, new id: %d, old label: %s, new label: %s", dbResultBeforeCmdCall.TelegramId, dbResultAfterCmdCall.TelegramId, dbResultBeforeCmdCall.ID, dbResultAfterCmdCall.ID, dbResultBeforeCmdCall.Label, dbResultAfterCmdCall.Label))
 		return
 	}
 	t.Logf("TestEditAddedOK complete")
@@ -266,9 +268,55 @@ func TestEditAddedFilmCancelCMD(t *testing.T) {
 		t.Errorf(fmt.Sprintf("Can't get film %s from db: %s", searchedFims, err.Error()))
 		return
 	}
-	if firstDbCheck.ID != secondDbCheck.ID || secondDbCheck.Label != searchedFims {
-		t.Errorf(fmt.Sprintf("Wrong DB result, old id: %d, new id: %d, old label: %s, new label: %s", firstDbCheck.ID, secondDbCheck.ID, firstDbCheck.Label, secondDbCheck.Label))
+	if firstDbCheck.TelegramId != secondDbCheck.TelegramId || firstDbCheck.ID != secondDbCheck.ID || secondDbCheck.Label != searchedFims {
+		t.Errorf(fmt.Sprintf("Wrong DB result, old tg_id: %d, new tg_id: %d, old id: %d, new id: %d, old label: %s, new label: %s", firstDbCheck.TelegramId, secondDbCheck.TelegramId, firstDbCheck.ID, secondDbCheck.ID, firstDbCheck.Label, secondDbCheck.Label))
 		return
 	}
 	t.Logf("TestEditAddedFilmCancelCMD complete")
+}
+
+func TestAddNewFilmLimit(t *testing.T) {
+	testTelegramClientInst, answerChan, _ := NewTestMovieBot("./test_data/test_data.sql")
+	testTelegramClientInst.CFG = cfg.Config{FilmLimit: 1}
+	updates := make(chan tgbotapi.Update)
+	go testTelegramClientInst.AddFilmToHat(updates)
+	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 100}}}
+	answer := <-answerChan
+	expectedAnswer := "Вы привысили лимит фильмов на человека, вы сможете добавить фильм после того как какой-нибудь ваш фильм выберет шляпа. Значение лимита 1."
+	if answer != expectedAnswer {
+		t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, expectedAnswer))
+		return
+	}
+	t.Logf("TestAddNewFilmLimit complete")
+}
+
+func TestAddNewFilmOK(t *testing.T) {
+	testTelegramClientInst, answerChan, setUpConn := NewTestMovieBot("./test_data/test_data.sql")
+	updates := make(chan tgbotapi.Update)
+	go testTelegramClientInst.AddFilmToHat(updates)
+	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: "", Chat: &tgbotapi.Chat{ID: 100}}}
+	answer := <-answerChan
+	expectedAnswer := "Отправь мне название фильма и какую-нибудь информацию о нем (например режиссер или год), чтобы фильм опознавался однозначно."
+	if answer != expectedAnswer {
+		t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, expectedAnswer))
+		return
+	}
+	addedFilmLabel := "TestFilm"
+	updates <- tgbotapi.Update{Message: &tgbotapi.Message{Text: addedFilmLabel, Chat: &tgbotapi.Chat{ID: 100}}}
+	answer = <-answerChan
+	expectedAnswer = "Фильм в шляпе!"
+	if answer != expectedAnswer {
+		t.Errorf(fmt.Sprintf("Not expected bot answer: %s, expected: %s", answer, expectedAnswer))
+		return
+	}
+	dbResult, err := getSimpleFilm(setUpConn, addedFilmLabel)
+	if err != nil {
+		t.Errorf(fmt.Sprintf("Can't get film %s from db: %s", addedFilmLabel, err.Error()))
+		return
+	}
+	if dbResult.TelegramId != 100 {
+		t.Errorf(fmt.Sprintf("Film added by not expected user. expected: %d, value: %d", 100, dbResult.TelegramId))
+		return
+	}
+	t.Logf("TestAddNewFilmOK complete")
 }

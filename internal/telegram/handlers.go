@@ -49,10 +49,23 @@ func (b *MovieNightTelegramBot) AddFilmToHat(updates chan tgbotapi.Update) {
 	update := <-updates
 	chatID := update.Message.Chat.ID
 	defer delete(b.userUpdates, chatID)
+	unwatchedStatus := internalDB.MovieStatusUnwatched
+	films, err := b.DB.GetFilms(internalDB.MovieSearch{Status: &unwatchedStatus, TelegramID: &chatID})
+	if err != nil {
+		msg := tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
+		log.Printf("Can't check user %d film: %v\n", chatID, err)
+		b.TGBot.SendMsg(msg)
+		return
+	}
+	if b.CFG.FilmLimit > 0 && len(films) >= b.CFG.FilmLimit {
+		msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Вы привысили лимит фильмов на человека, вы сможете добавить фильм после того как какой-нибудь ваш фильм выберет шляпа. Значение лимита %d.", b.CFG.FilmLimit))
+		b.TGBot.SendMsg(msg)
+		return
+	}
 	msg := tgbotapi.NewMessage(chatID, "Отправь мне название фильма и какую-нибудь информацию о нем (например режиссер или год), чтобы фильм опознавался однозначно.")
 	b.TGBot.SendMsg(msg)
 	update = <-updates
-	err := b.DB.SaveFilmToHat(chatID, update.Message.Text)
+	err = b.DB.SaveFilmToHat(chatID, update.Message.Text)
 	if err != nil {
 		msg = tgbotapi.NewMessage(chatID, "Попробуй снова, что-то пошло не так(((")
 		log.Println("Can't save film: ", err)
